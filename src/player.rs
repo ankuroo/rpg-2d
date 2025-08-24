@@ -1,9 +1,18 @@
+use std::fs;
+
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::components::*;
 
 #[derive(Component)]
 pub struct Player;
+
+#[derive (Serialize, Deserialize)]
+pub struct PlayerConfig {
+    pub health : f32,
+    pub start_position: [f32; 3],
+}
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
@@ -14,12 +23,43 @@ pub struct PlayerBundle {
     health: Health,
 }
 
+impl PlayerBundle {
+
+    pub fn default() -> Self {
+        Self {
+            player: Player,
+            position: Position(Vec3::ZERO),
+            velocity: Velocity(Vec3::ZERO),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(30.0, 50.0)),
+                color: Color::linear_rgb(1.0, 0.0, 0.0),
+                ..default()
+            },
+            health: Health::new(30.0)
+        }
+    }
+
+    pub fn from_config(config: PlayerConfig) -> Self {
+        Self {
+            player: Player,
+            position: Position(Vec3::from(config.start_position)),
+            velocity: Velocity(Vec3::ZERO),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(30.0, 50.0)),
+                color: Color::linear_rgb(1.0, 0.0, 0.0),
+                ..default()
+            },
+            health: Health::new(config.health)
+        }
+    }
+}
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_systems(Startup, spawn_player)
+        .add_systems(Startup, spawn_player_from_config)
         .add_systems(Update, (handle_inputs, move_player, manage_health, sync_position_transform).chain())
         ;
     }
@@ -27,18 +67,22 @@ impl Plugin for PlayerPlugin {
 
 fn spawn_player(mut commands: Commands) {
 
-    commands.spawn(PlayerBundle {
-        player: Player,
-        position: Position(Vec3::ZERO),
-        velocity: Velocity(Vec3::ZERO),
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(30.0, 50.0)),
-            color: Color::linear_rgb(1.0, 0.0, 0.0),
-            ..default()
-        },
-        health: Health::new(0.0)
-    });
+    commands.spawn(PlayerBundle::default());
 
+}
+
+fn load_player_config(path: &str) -> PlayerConfig {
+    let file_contents = fs::read_to_string(path)
+        .expect("Failed to read config file");
+
+    serde_json::from_str(&file_contents)
+        .expect("Failed to parse JSON")
+
+}
+
+fn spawn_player_from_config(mut commands: Commands) {
+    let config = load_player_config("assets/configs/player.json");
+    commands.spawn(PlayerBundle::from_config(config));
 }
 
 fn handle_inputs(
