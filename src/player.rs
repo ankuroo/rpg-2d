@@ -1,4 +1,4 @@
-use bevy::{ecs::query::QuerySingleError, prelude::*};
+use bevy::prelude::*;
 
 use crate::components::*;
 
@@ -11,6 +11,7 @@ pub struct PlayerBundle {
     position: Position,
     velocity: Velocity,
     sprite: Sprite,
+    health: Health,
 }
 
 pub struct PlayerPlugin;
@@ -19,7 +20,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
         .add_systems(Startup, spawn_player)
-        .add_systems(Update, (handle_inputs, move_player, sync_position_transform).chain())
+        .add_systems(Update, (handle_inputs, move_player, manage_health, sync_position_transform).chain())
         ;
     }
 }
@@ -34,7 +35,8 @@ fn spawn_player(mut commands: Commands) {
             custom_size: Some(Vec2::new(30.0, 50.0)),
             color: Color::linear_rgb(1.0, 0.0, 0.0),
             ..default()
-        }
+        },
+        health: Health::new(0.0)
     });
 
 }
@@ -64,6 +66,20 @@ fn handle_inputs(
 
         velocity.0 = direction.normalize_or_zero() * 100.0;
 
+    }
+
+}
+
+fn manage_health(
+    mut health_query: Query<(Entity, &mut Health), With<Player>>,
+    mut commands: Commands
+) {
+
+    if let Ok((entity, mut health)) = health_query.single_mut() {
+        if !health.is_alive() {
+            println!("Player is dead.");
+            commands.entity(entity).despawn();
+        }
     }
 
 }
