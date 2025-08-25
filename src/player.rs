@@ -59,8 +59,10 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
+        .add_event::<AttackEvent>()
+        .add_event::<InteractionEvent>()
         .add_systems(Startup, spawn_player_from_config)
-        .add_systems(Update, (handle_inputs, move_player, manage_health, sync_position_transform).chain())
+        .add_systems(Update, (handle_movement_inputs, handle_action_inputs, move_player, manage_health, sync_position_transform).chain())
         ;
     }
 }
@@ -85,7 +87,7 @@ fn spawn_player_from_config(mut commands: Commands) {
     commands.spawn(PlayerBundle::from_config(config));
 }
 
-fn handle_inputs(
+fn handle_movement_inputs(
     keys: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<&mut Velocity, With<Player>>
 ) {
@@ -110,6 +112,31 @@ fn handle_inputs(
 
         velocity.0 = direction.normalize_or_zero() * 100.0;
 
+    }
+
+}
+
+#[derive(Event)]
+pub struct AttackEvent;
+
+#[derive(Event)]
+pub struct InteractionEvent;
+
+fn handle_action_inputs(
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    mut attack_event: EventWriter<AttackEvent>,
+    mut interaction_event: EventWriter<InteractionEvent>,
+) {
+
+    // Attacks
+    if mouse.just_pressed(MouseButton::Left) {
+        attack_event.write(AttackEvent);
+    }
+
+    // Actions
+    if keys.just_pressed(KeyCode::KeyE) {
+        interaction_event.write(InteractionEvent);
     }
 
 }
