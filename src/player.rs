@@ -11,6 +11,7 @@ pub struct Player;
 #[derive (Serialize, Deserialize)]
 pub struct PlayerConfig {
     pub health : f32,
+    pub stamina: f32,
     pub start_position: [f32; 3],
 }
 
@@ -21,6 +22,7 @@ pub struct PlayerBundle {
     velocity: Velocity,
     sprite: Sprite,
     health: Health,
+    stamina: Stamina,
 }
 
 impl PlayerBundle {
@@ -35,7 +37,8 @@ impl PlayerBundle {
                 color: Color::linear_rgb(1.0, 0.0, 0.0),
                 ..default()
             },
-            health: Health::new(30.0)
+            health: Health::new(30.0),
+            stamina: Stamina::new( 15.0),
         }
     }
 
@@ -49,7 +52,8 @@ impl PlayerBundle {
                 color: Color::linear_rgb(1.0, 0.0, 0.0),
                 ..default()
             },
-            health: Health::new(config.health)
+            health: Health::new(config.health),
+            stamina: Stamina::new(config.stamina)
         }
     }
 }
@@ -62,15 +66,20 @@ impl Plugin for PlayerPlugin {
         .add_event::<AttackEvent>()
         .add_event::<InteractionEvent>()
         .add_systems(Startup, spawn_player_from_config)
-        .add_systems(Update, (handle_movement_inputs, handle_action_inputs, move_player, manage_health, sync_position_transform).chain())
+        .add_systems(Update, (
+            handle_movement_inputs, 
+            handle_action_inputs, 
+            move_player, 
+            manage_health, 
+            stamina_regen,
+            sync_position_transform
+        ).chain())
         ;
     }
 }
 
 fn spawn_player(mut commands: Commands) {
-
     commands.spawn(PlayerBundle::default());
-
 }
 
 fn load_player_config(path: &str) -> PlayerConfig {
@@ -123,6 +132,7 @@ pub struct AttackEvent;
 pub struct InteractionEvent;
 
 fn handle_action_inputs(
+    mut player_query: Query<&mut Stamina, With<Player>>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut attack_event: EventWriter<AttackEvent>,
@@ -131,7 +141,12 @@ fn handle_action_inputs(
 
     // Attacks
     if mouse.just_pressed(MouseButton::Left) {
-        attack_event.write(AttackEvent);
+        if let Ok(mut stamina) = player_query.single_mut() {
+            if stamina.current >= 5.0 {
+                stamina.deplete(5.0);
+                attack_event.write(AttackEvent);
+            }
+        }
     }
 
     // Actions
@@ -162,6 +177,16 @@ fn move_player(
     if let Ok((mut position, velocity)) = player_query.single_mut() {
         position.0 += velocity.0 * time.delta_secs();
     }
+}
+
+fn stamina_regen(
+    time: Res<Time>,
+    mut stamina_query: Query<&mut Stamina, With<Player>>
+) {
+    if let Ok(mut stamina) = stamina_query.single_mut() {
+        stamina.regen(5.0 * time.delta_secs());
+    }
+
 }
 
 fn sync_position_transform(

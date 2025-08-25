@@ -37,5 +37,27 @@ impl Health {
 pub struct Position(pub Vec3);
 
 #[derive(Component)]
+pub struct Stamina{
+    pub current: f32,
+    pub max: f32,
+}
+
+impl Stamina {
+
+    pub fn new(max: f32) -> Self {
+        Self{current: max, max}
+    }
+
+    pub fn regen(&mut self, points: f32) {
+        self.current = (self.current + points).min(self.max);
+    }
+
+    pub fn deplete(&mut self, points: f32) {
+        self.current = (self.current - points).max(0.0);
+    }
+
+}
+
+#[derive(Component)]
 pub struct Velocity(pub Vec3);
 
