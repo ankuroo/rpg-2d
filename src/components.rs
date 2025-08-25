@@ -23,6 +23,14 @@ impl Health {
         self.current = (self.current + points).min(self.max);
     }
 
+    pub fn percentage(&self) -> f32 {
+        if self.max == 0.0 {
+            0.0
+        } else {
+            self.current / self.max
+        }
+    }
+
     pub fn take_damage(&mut self, points: f32) {
         self.current = (self.current - points).max(0.0);
     }
@@ -54,6 +62,14 @@ impl Stamina {
 
     pub fn deplete(&mut self, points: f32) {
         self.current = (self.current - points).max(0.0);
+    }
+
+    pub fn percentage(&self) -> f32 {
+        if self.max == 0.0 {
+            0.0
+        } else {
+            self.current / self.max
+        }
     }
 
 }
