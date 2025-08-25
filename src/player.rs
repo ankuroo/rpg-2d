@@ -15,6 +15,15 @@ pub struct PlayerConfig {
     pub start_position: [f32; 3],
 }
 
+#[derive(Component, PartialEq, Eq)]
+pub enum PlayerState {
+    Idle,
+    Walking,
+    Attacking,
+    Exhausted,
+    Dead
+}
+
 #[derive(Bundle)]
 pub struct PlayerBundle {
     player: Player,
@@ -23,6 +32,7 @@ pub struct PlayerBundle {
     sprite: Sprite,
     health: Health,
     stamina: Stamina,
+    state: PlayerState,
 }
 
 impl PlayerBundle {
@@ -39,6 +49,7 @@ impl PlayerBundle {
             },
             health: Health::new(30.0),
             stamina: Stamina::new( 15.0),
+            state: PlayerState::Idle,
         }
     }
 
@@ -53,7 +64,8 @@ impl PlayerBundle {
                 ..default()
             },
             health: Health::new(config.health),
-            stamina: Stamina::new(config.stamina)
+            stamina: Stamina::new(config.stamina),
+            state: PlayerState::Idle,
         }
     }
 }
@@ -71,6 +83,7 @@ impl Plugin for PlayerPlugin {
             handle_action_inputs, 
             move_player, 
             manage_health, 
+            update_player_state,
             stamina_regen,
             sync_position_transform
         ).chain())
@@ -132,7 +145,7 @@ pub struct AttackEvent;
 pub struct InteractionEvent;
 
 fn handle_action_inputs(
-    mut player_query: Query<&mut Stamina, With<Player>>,
+    mut player_query: Query<(&mut Stamina, &PlayerState), With<Player>>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut attack_event: EventWriter<AttackEvent>,
@@ -141,8 +154,8 @@ fn handle_action_inputs(
 
     // Attacks
     if mouse.just_pressed(MouseButton::Left) {
-        if let Ok(mut stamina) = player_query.single_mut() {
-            if stamina.current >= 5.0 {
+        if let Ok((mut stamina, state)) = player_query.single_mut() {
+            if stamina.current >= 5.0 && *state != PlayerState::Exhausted {
                 stamina.deplete(5.0);
                 attack_event.write(AttackEvent);
             }
@@ -181,10 +194,10 @@ fn move_player(
 
 fn stamina_regen(
     time: Res<Time>,
-    mut stamina_query: Query<&mut Stamina, With<Player>>
+    mut stamina_query: Query<(&mut Stamina, &PlayerState), With<Player>>
 ) {
-    if let Ok(mut stamina) = stamina_query.single_mut() {
-        stamina.regen(5.0 * time.delta_secs());
+    if let Ok((mut stamina, state)) = stamina_query.single_mut() {
+        if *state == PlayerState::Exhausted { stamina.regen(5.0 * time.delta_secs()); }
     }
 
 }
@@ -197,4 +210,28 @@ fn sync_position_transform(
         transform.translation = position.0
     }
 
+}
+
+fn update_player_state(
+    mut player_query: Query<(&mut PlayerState, &Health, &mut Stamina, &Velocity), With<Player>>,
+) {
+
+    if let Ok((mut state, health, mut stamina, velocity)) = player_query.single_mut() {
+
+        if !health.is_alive() { *state = PlayerState::Dead; }
+
+        else if stamina.is_depleted() { *state = PlayerState::Exhausted; }
+
+        else if (*state == PlayerState::Exhausted && stamina.is_full()) {
+
+            if velocity.0.length() == 0.0 { *state = PlayerState::Idle; } 
+            else { *state = PlayerState::Walking; }
+
+        } else if *state != PlayerState::Exhausted  {
+
+            if velocity.0.length() == 0.0 { *state = PlayerState::Idle; } 
+            else { *state = PlayerState::Walking; }
+
+        }
+    }
 }

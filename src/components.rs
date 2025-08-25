@@ -56,6 +56,14 @@ impl Stamina {
         Self{current: max, max}
     }
 
+    pub fn is_depleted(&self) -> bool {
+        self.current == 0.0
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.current == self.max
+    }
+
     pub fn regen(&mut self, points: f32) {
         self.current = (self.current + points).min(self.max);
     }
