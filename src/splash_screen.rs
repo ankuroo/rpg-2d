@@ -1,5 +1,15 @@
 use bevy::prelude::*;
 
+#[derive(Component)]
+pub struct SplashScreen;
+
+#[derive(Component)]
+pub enum SplashState {
+    FadeIn(Timer),
+    Wait(Timer),
+    FadeOut(Timer),
+}
+
 pub struct SplashScreenPlugin;
 
 impl Plugin for SplashScreenPlugin {
@@ -7,9 +17,43 @@ impl Plugin for SplashScreenPlugin {
     fn build(&self, app: &mut App) {
         app
         .add_systems(Startup, setup_splash)
+        .add_systems(Update, fade_splash)
         ;
     }
 
+}
+
+fn fade_splash(
+    time: Res<Time>,
+    mut splash_query: Query<(&mut SplashState, &mut ImageNode), With<SplashScreen>>
+) {
+    if let Ok((mut state, mut image)) = splash_query.single_mut() {
+
+        match &mut *state {
+            SplashState::FadeIn(x) => {
+                x.tick(time.delta());
+                image.color.set_alpha(x.fraction());
+                if x.finished() {
+                    *state = SplashState::Wait(Timer::from_seconds(3.0, TimerMode::Once));
+                }
+            },
+            SplashState::Wait(x) => {
+                x.tick(time.delta());
+                if x.finished() {
+                    *state = SplashState::FadeOut(Timer::from_seconds(1.0, TimerMode::Once));
+                }
+
+            },
+            SplashState::FadeOut(x) => {
+                x.tick(time.delta());
+                image.color.set_alpha(1.0 - x.fraction());
+
+            },
+            _ => {
+
+            }
+        }
+    }
 }
 
 fn setup_splash(
@@ -31,8 +75,11 @@ fn setup_splash(
     ))
     .with_children(|parent| {
         parent.spawn((
+            SplashScreen,
+            SplashState::FadeIn(Timer::from_seconds(1.0, TimerMode::Once)),
             ImageNode {
                 image: asset_server.load("splash.png"),
+                color: Color::linear_rgba(1.0, 1.0, 1.0, 0.0),
                 ..default()
             },
             Node {
