@@ -1,7 +1,12 @@
 use bevy::prelude::*;
 
+use crate::states::GameState;
+
 #[derive(Component)]
 pub struct SplashScreen;
+
+#[derive(Component)]
+pub struct SplashCamera;
 
 #[derive(Component)]
 pub enum SplashState {
@@ -19,6 +24,7 @@ impl Plugin for SplashScreenPlugin {
         app
         .add_systems(Startup, setup_splash)
         .add_systems(Update, fade_splash)
+        .add_systems(OnExit(GameState::Splash), splash_cleanup)
         ;
     }
 
@@ -31,7 +37,8 @@ fn ease_fade(t: f32) -> f32 {
 
 fn fade_splash(
     time: Res<Time>,
-    mut splash_query: Query<(&mut SplashState, &mut ImageNode), With<SplashScreen>>
+    mut splash_query: Query<(&mut SplashState, &mut ImageNode), With<SplashState>>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
 
     if let Ok((mut state, mut image)) = splash_query.single_mut() {
@@ -63,6 +70,10 @@ fn fade_splash(
             SplashState::FadeOut(x) => {
                 x.tick(time.delta());
                 image.color.set_alpha(ease_fade(1.0 - x.fraction()));
+
+                if x.finished() {
+                    next_state.set(GameState::MainMenu)
+                }
             },
 
         }
@@ -74,9 +85,13 @@ fn setup_splash(
     asset_server: Res<AssetServer>,
 ) {
 
-    commands.spawn(Camera2d);
+    commands.spawn((
+        SplashCamera,
+        Camera2d
+    ));
 
     commands.spawn((
+        SplashScreen,
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
@@ -88,7 +103,6 @@ fn setup_splash(
     ))
     .with_children(|parent| {
         parent.spawn((
-            SplashScreen,
             SplashState::Initial(Timer::from_seconds(2.0, TimerMode::Once)),
             ImageNode {
                 image: asset_server.load("splash.png"),
@@ -100,5 +114,21 @@ fn setup_splash(
             },
         ));
     });
+
+}
+
+fn splash_cleanup(
+    mut commands: Commands,
+    splash_query: Query<Entity, With<SplashScreen>>,
+    camera_query: Query<Entity, With<SplashCamera>>,
+) {
+
+    if let Ok(splash_entity) = splash_query.single() {
+        commands.entity(splash_entity).despawn();
+    }
+
+    if let Ok(camera_entity) = camera_query.single() {
+        commands.entity(camera_entity).despawn();
+    }
 
 }
