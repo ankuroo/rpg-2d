@@ -81,6 +81,7 @@ impl Plugin for PlayerPlugin {
         .add_systems(Update, (
             handle_movement_inputs, 
             handle_action_inputs, 
+            attack_timer_system,
             move_player, 
             manage_health, 
             update_player_state,
@@ -141,11 +142,15 @@ fn handle_movement_inputs(
 #[derive(Event)]
 pub struct AttackEvent;
 
+#[derive(Component)]
+pub struct AttackTimer(Timer);
+
 #[derive(Event)]
 pub struct InteractionEvent;
 
 fn handle_action_inputs(
-    mut player_query: Query<(&mut Stamina, &PlayerState), With<Player>>,
+    mut commands: Commands,
+    mut player_query: Query<(Entity, &mut Stamina, &mut PlayerState), With<Player>>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut attack_event: EventWriter<AttackEvent>,
@@ -154,10 +159,12 @@ fn handle_action_inputs(
 
     // Attacks
     if mouse.just_pressed(MouseButton::Left) {
-        if let Ok((mut stamina, state)) = player_query.single_mut() {
-            if stamina.current >= 5.0 && *state != PlayerState::Exhausted {
+        if let Ok((entity, mut stamina, mut state)) = player_query.single_mut() {
+            if stamina.current >= 5.0 && *state != PlayerState::Exhausted && *state != PlayerState::Attacking {
                 stamina.deplete(5.0);
                 attack_event.write(AttackEvent);
+                *state = PlayerState::Attacking;
+                commands.entity(entity).insert(AttackTimer(Timer::from_seconds(0.3, TimerMode::Once)));
             }
         }
     }
@@ -166,7 +173,21 @@ fn handle_action_inputs(
     if keys.just_pressed(KeyCode::KeyE) {
         interaction_event.write(InteractionEvent);
     }
+}
 
+fn attack_timer_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    player_query: Query<(Entity, &mut AttackTimer, &mut PlayerState), With<Player>>
+) {
+    for (entity, mut timer, mut state) in player_query {
+        timer.0.tick(time.delta());
+
+        if timer.0.finished() {
+            *state = PlayerState::Idle; 
+            commands.entity(entity).remove::<AttackTimer>();
+        }
+    }
 }
 
 fn manage_health(
@@ -197,7 +218,7 @@ fn stamina_regen(
     mut stamina_query: Query<(&mut Stamina, &PlayerState), With<Player>>
 ) {
     if let Ok((mut stamina, state)) = stamina_query.single_mut() {
-        if *state == PlayerState::Exhausted { stamina.regen(5.0 * time.delta_secs()); }
+        if !matches!(*state, PlayerState::Attacking | PlayerState::Dead) { stamina.regen(5.0 * time.delta_secs()); }
     }
 
 }
@@ -219,6 +240,8 @@ fn update_player_state(
     if let Ok((mut state, health, mut stamina, velocity)) = player_query.single_mut() {
 
         if !health.is_alive() { *state = PlayerState::Dead; }
+
+        else if (*state == PlayerState::Attacking) {}
 
         else if stamina.is_depleted() { *state = PlayerState::Exhausted; }
 
