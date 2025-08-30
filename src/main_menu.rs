@@ -16,7 +16,20 @@ impl Plugin for MainMenuPlugin {
         app
         .add_systems(OnEnter(GameState::MainMenu),setup_menu)
         .add_systems(OnExit(GameState::MainMenu),cleanup_menu)
+        .add_systems(Update, handle_inputs.run_if(in_state(GameState::MainMenu)))
         ;
+    }
+
+}
+
+fn handle_inputs(
+    mouse: Res<ButtonInput<MouseButton>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+
+    if keys.get_pressed().next().is_some() || mouse.get_pressed().next().is_some() {
+        next_state.set(GameState::InGame);
     }
 
 }
@@ -54,6 +67,8 @@ fn setup_menu(
             height: Val::Percent(100.0),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Percent(30.0),
             ..Default::default()
         },
         BackgroundColor(Color::BLACK),
@@ -65,6 +80,12 @@ fn setup_menu(
                 ..default()
             },
             Node {..Default::default()}
+        ));
+
+        parent.spawn((
+            Text::new("Press any key..."),
+            TextColor::WHITE,
+            Node {..Default::default()},
         ));
 
     }
