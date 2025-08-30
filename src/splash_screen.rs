@@ -72,7 +72,7 @@ fn fade_splash(
                 image.color.set_alpha(ease_fade(1.0 - x.fraction()));
 
                 if x.finished() {
-                    next_state.set(GameState::MainMenu)
+                    next_state.set(GameState::InGame)
                 }
             },
 

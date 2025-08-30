@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::components::*;
+use crate::states::GameState;
 
 #[derive(Component)]
 pub struct Player;
@@ -77,7 +78,7 @@ impl Plugin for PlayerPlugin {
         app
         .add_event::<AttackEvent>()
         .add_event::<InteractionEvent>()
-        .add_systems(Startup, spawn_player_from_config)
+        .add_systems(OnEnter(GameState::InGame), spawn_player_from_config)
         .add_systems(Update, (
             handle_movement_inputs, 
             handle_action_inputs, 
