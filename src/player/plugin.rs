@@ -9,6 +9,7 @@ use crate::states::GameState;
 use crate::player::player::*;
 use crate::player::movement::*;
 use crate::player::state::*;
+use crate::player::status::*;
 
 pub struct PlayerPlugin;
 
@@ -38,6 +39,9 @@ impl Plugin for PlayerPlugin {
 
             // Stamina
             regen_stamina,
+
+            // Statuses
+            update_exhaustion,
 
             // State
             update_state

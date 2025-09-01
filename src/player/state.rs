@@ -3,13 +3,19 @@ use bevy::prelude::*;
 use crate::components::*;
 use crate::player::*;
 
-#[derive(Component, PartialEq, Eq, Clone, Copy)]
+#[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum PlayerState {
     Idle,
     Walking,
     Attacking,
-    Exhausted,
     Dead
+}
+
+impl PlayerState {
+
+    pub fn is_attacking(&self) -> bool {
+        *self == PlayerState::Attacking
+    }
 }
 
 fn is_interrupting_state(state: PlayerState) -> bool {
@@ -29,19 +35,6 @@ pub fn update_state(
 
         if is_interrupting_state(*state) {
             return
-        }
-
-        if stamina.is_depleted() {
-            *state = PlayerState::Exhausted;
-            return;
-        }
-
-        if stamina.is_full() && *state == PlayerState::Exhausted {
-            if velocity.0 != Vec3::ZERO {
-                *state = PlayerState::Walking;
-            } else {
-                *state = PlayerState::Idle;
-            }
         }
 
         if velocity.0 != Vec3::ZERO {
